@@ -1,7 +1,6 @@
 /**
- * J.A.R.V.I.S AI SCRAPER ENGINE V9
- * Location: https://github.com/jarvis-id/jsdeliverjarvis/main/jarvis-ai.js
- * Function: Universal Web Scraping & Blogger HTML Generation
+ * J.A.R.V.I.S AI ENGINE V10 - COMMAND-CENTRIC
+ * Update: Fokus Mutlak pada Instruksi Pengguna
  */
 
 const JARVIS_CONFIG = {
@@ -17,22 +16,20 @@ async function startJarvisPortal() {
     const resultArea = document.getElementById('jarvis-result-area');
     const btn = document.getElementById('jarvis-portal-btn');
 
-    if (!cmdInput.value) { alert("Sistem memerlukan instruksi redaksi, Tuan."); return; }
+    if (!cmdInput.value) { alert("Tuan, sistem tidak bisa bekerja tanpa perintah spesifik."); return; }
 
-    // UI State
     btn.disabled = true;
-    btn.innerText = "SCRAPPING...";
+    btn.innerText = "PROCESSING COMMAND...";
     status.style.display = "block";
     resultArea.style.display = "none";
-    status.innerText = "> INITIALIZING UNIVERSAL UPLINK...";
+    status.innerText = "> ANALYZING YOUR COMMANDS...";
 
     let rawContent = "";
 
     try {
+        // PROSES SCRAPING (Hanya jika ada URL)
         if (urlInput.value) {
-            status.innerText = "> BYPASSING MEDIA FIREWALL...";
-            
-            // Triple Proxy Logic for Universal Access
+            status.innerText = "> EXTRACTING DATA FROM SOURCE...";
             const proxies = [
                 `https://corsproxy.io/?url=${encodeURIComponent(urlInput.value)}`,
                 `https://api.allorigins.win/get?url=${encodeURIComponent(urlInput.value)}`
@@ -43,31 +40,21 @@ async function startJarvisPortal() {
                 try {
                     const response = await fetch(proxy);
                     if (!response.ok) continue;
-                    
                     let html = proxy.includes('allorigins') ? (await response.json()).contents : await response.text();
-                    
                     if (html) {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(html, 'text/html');
-                        
-                        // Clean Garbage Tags
-                        const noise = doc.querySelectorAll('script, style, nav, footer, header, aside, ads, .sidebar, .comments');
-                        noise.forEach(n => n.remove());
-                        
-                        // Universal Content Extraction (Text Density)
-                        rawContent = doc.body.innerText.replace(/\s+/g, ' ').trim().substring(0, 10000);
-                        
-                        if (rawContent.length > 250) { success = true; break; }
+                        doc.querySelectorAll('script, style, nav, footer, header, aside, .ads').forEach(n => n.remove());
+                        rawContent = doc.body.innerText.replace(/\s+/g, ' ').trim().substring(0, 9500);
+                        if (rawContent.length > 200) { success = true; break; }
                     }
-                } catch (e) { console.warn("Proxy Failed:", proxy); }
+                } catch (e) {}
             }
-
-            if (!success) throw new Error("Media memblokir akses otomatis. Silakan gunakan link media lain atau paste teks secara manual.");
         }
 
-        status.innerText = "> GENERATING BLOGGER HTML STRUCTURE...";
+        status.innerText = "> EXECUTING YOUR SPECIFIC ORDERS...";
 
-        // AI Request with HTML strictly formatted
+        // REQUEST AI DENGAN PRIORITAS PADA PERINTAH USER
         const aiRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -79,32 +66,32 @@ async function startJarvisPortal() {
                 messages: [
                     {
                         role: "system",
-                        content: `Kamu adalah J.A.R.V.I.S News Editor. Tugasmu adalah mengolah teks berita mentah menjadi kode HTML murni untuk Blogger. 
-                        ATURAN WAJIB:
-                        1. Selalu bungkus konten dalam <div class="entry-content">.
-                        2. Gunakan tag <h2> untuk sub-judul.
-                        3. Gunakan tag <p> untuk paragraf.
-                        4. Gunakan tag <strong> untuk penekanan kata kunci.
-                        5. Gunakan <ul> dan <li> untuk poin-poin.
-                        6. Jika ada kutipan, gunakan <blockquote>.
-                        7. JANGAN berikan teks basa-basi (seperti "Ini hasilnya"). Berikan HANYA kode HTML.`
+                        content: `Kamu adalah asisten editor J.A.R.V.I.S. 
+                        Tugas utamamu adalah MENGIKUTI PERINTAH USER SECARA MUTLAK. 
+                        Teks berita yang diberikan hanyalah REFERENSI DATA. 
+                        
+                        ATURAN KERJA:
+                        1. Prioritaskan format, gaya bahasa, dan struktur sesuai 'PERINTAH USER'.
+                        2. Jika user minta diskusi, buat diskusi. Jika user minta ringkasan, buat ringkasan. Jika user minta gaya bahasa santai, buat santai.
+                        3. Hasil akhir HARUS dalam format HTML Blogger (bungkus dengan <div class="entry-content">).
+                        4. Gunakan tag <h2>, <p>, <strong>, <ul>, <li> secara rapi.
+                        5. Jangan memberikan komentar seperti 'Ini hasilnya' atau 'Berikut adalah artikelnya'. Berikan kode HTML langsung.`
                     },
                     {
                         role: "user",
-                        content: `SUMBER DATA:\n${rawContent}\n\nPERINTAH REDAKSI:\n${cmdInput.value}`
+                        content: `REFERENSI BERITA:\n${rawContent || "Tidak ada URL, gunakan pengetahuanmu."}\n\nPERINTAH USER (WAJIB DIIKUTI):\n${cmdInput.value}`
                     }
                 ],
-                temperature: 0.5
+                temperature: 0.7 // Dinaikkan sedikit agar AI lebih fleksibel mengikuti instruksi kreatif
             })
         });
 
         const aiData = await aiRes.json();
-        const finalHTML = aiData.choices[0].message.content;
+        if (aiData.error) throw new Error(aiData.error.message);
 
-        // Display Result
-        output.value = finalHTML;
+        output.value = aiData.choices[0].message.content;
         resultArea.style.display = "block";
-        status.innerText = "> TRANSMISI SELESAI. HTML SIAP DICOPY.";
+        status.innerText = "> COMMAND EXECUTED SUCCESSFULLY.";
 
     } catch (err) {
         status.innerText = "> ERROR: " + err.message;
@@ -115,10 +102,9 @@ async function startJarvisPortal() {
     }
 }
 
-// Global Copy Function
 window.copyJarvisResult = function() {
     const copyText = document.getElementById("jarvis-output-text");
     copyText.select();
     document.execCommand("copy");
-    alert("KODE HTML DISALIN!\nTempelkan pada mode HTML di Editor Blogger.");
+    alert("KODE HTML DISALIN!");
 };

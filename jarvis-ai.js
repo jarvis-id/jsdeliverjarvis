@@ -1,6 +1,6 @@
 /**
- * J.A.R.V.I.S AI ENGINE V10 - COMMAND-CENTRIC
- * Update: Fokus Mutlak pada Instruksi Pengguna
+ * J.A.R.V.I.S AI ENGINE V12 - SMART DATA EXTRACTION
+ * Update: Fokus pada Penarikan Paragraf Berita & Perintah Mutlak
  */
 
 const JARVIS_CONFIG = {
@@ -16,45 +16,55 @@ async function startJarvisPortal() {
     const resultArea = document.getElementById('jarvis-result-area');
     const btn = document.getElementById('jarvis-portal-btn');
 
-    if (!cmdInput.value) { alert("Tuan, sistem tidak bisa bekerja tanpa perintah spesifik."); return; }
+    if (!cmdInput.value) { alert("Sistem memerlukan instruksi, Tuan."); return; }
 
     btn.disabled = true;
-    btn.innerText = "PROCESSING COMMAND...";
+    btn.innerText = "SCRAPPING...";
     status.style.display = "block";
     resultArea.style.display = "none";
-    status.innerText = "> ANALYZING YOUR COMMANDS...";
+    status.innerText = "> SCANNING TARGET CONTENT...";
 
-    let rawContent = "";
+    let newsData = "";
 
     try {
-        // PROSES SCRAPING (Hanya jika ada URL)
         if (urlInput.value) {
-            status.innerText = "> EXTRACTING DATA FROM SOURCE...";
-            const proxies = [
-                `https://corsproxy.io/?url=${encodeURIComponent(urlInput.value)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent(urlInput.value)}`
-            ];
+            status.innerText = "> BYPASSING GATEWAY & FILTERING NOISE...";
+            const targetUrl = urlInput.value.trim();
+            const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxy);
+            const data = await response.json();
+            
+            if (!data.contents) throw new Error("Gagal menarik data. Media memproteksi kontennya.");
 
-            let success = false;
-            for (let proxy of proxies) {
-                try {
-                    const response = await fetch(proxy);
-                    if (!response.ok) continue;
-                    let html = proxy.includes('allorigins') ? (await response.json()).contents : await response.text();
-                    if (html) {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        doc.querySelectorAll('script, style, nav, footer, header, aside, .ads').forEach(n => n.remove());
-                        rawContent = doc.body.innerText.replace(/\s+/g, ' ').trim().substring(0, 9500);
-                        if (rawContent.length > 200) { success = true; break; }
-                    }
-                } catch (e) {}
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.contents, 'text/html');
+            
+            // Hapus elemen yang bukan isi berita
+            doc.querySelectorAll('script, style, nav, footer, header, aside, .sidebar, .ads, .komentar, .footer-ads').forEach(j => j.remove());
+            
+            // TEKNIK BARU: Ambil hanya teks dari paragraf berita (P tags)
+            // Ini membuang 90% teks menu navigasi
+            const contentArea = doc.querySelector('article') || doc.querySelector('.read__content') || doc.querySelector('.entry-content') || doc.body;
+            const paragraphs = contentArea.querySelectorAll('p');
+            
+            let collectedText = "";
+            paragraphs.forEach(p => {
+                const txt = p.innerText.trim();
+                // Hanya ambil paragraf yang panjangnya > 40 karakter (menghindari teks menu singkat)
+                if (txt.length > 40) collectedText += txt + "\n\n";
+            });
+
+            newsData = collectedText.substring(0, 9000); // Batas 9000 karakter
+            
+            if (newsData.length < 150) {
+                // Fallback jika tidak ada tag P yang ditemukan
+                newsData = contentArea.innerText.replace(/\s+/g, ' ').trim().substring(0, 9000);
             }
         }
 
-        status.innerText = "> EXECUTING YOUR SPECIFIC ORDERS...";
+        status.innerText = "> EXECUTING COMMAND ON AI CORE...";
 
-        // REQUEST AI DENGAN PRIORITAS PADA PERINTAH USER
         const aiRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -66,23 +76,22 @@ async function startJarvisPortal() {
                 messages: [
                     {
                         role: "system",
-                        content: `Kamu adalah asisten editor J.A.R.V.I.S. 
-                        Tugas utamamu adalah MENGIKUTI PERINTAH USER SECARA MUTLAK. 
-                        Teks berita yang diberikan hanyalah REFERENSI DATA. 
+                        content: `Kamu adalah J.A.R.V.I.S News Editor Pro. 
+                        TUGAS UTAMAMU: Mengolah data referensi berita menjadi sebuah artikel Blogger sesuai PERINTAH USER.
                         
-                        ATURAN KERJA:
-                        1. Prioritaskan format, gaya bahasa, dan struktur sesuai 'PERINTAH USER'.
-                        2. Jika user minta diskusi, buat diskusi. Jika user minta ringkasan, buat ringkasan. Jika user minta gaya bahasa santai, buat santai.
-                        3. Hasil akhir HARUS dalam format HTML Blogger (bungkus dengan <div class="entry-content">).
-                        4. Gunakan tag <h2>, <p>, <strong>, <ul>, <li> secara rapi.
-                        5. Jangan memberikan komentar seperti 'Ini hasilnya' atau 'Berikut adalah artikelnya'. Berikan kode HTML langsung.`
+                        SYARAT MUTLAK:
+                        1. Abaikan semua teks iklan atau menu navigasi dalam referensi.
+                        2. Fokus HANYA pada isi cerita/berita yang ada dalam teks.
+                        3. Ikuti PERINTAH USER (format, gaya bahasa, struktur) secara mutlak tanpa kompromi.
+                        4. Output harus dalam format HTML Blogger (<div class="entry-content">).
+                        5. Jangan ada kata pengantar. Berikan KODE HTML LANGSUNG.`
                     },
                     {
                         role: "user",
-                        content: `REFERENSI BERITA:\n${rawContent || "Tidak ada URL, gunakan pengetahuanmu."}\n\nPERINTAH USER (WAJIB DIIKUTI):\n${cmdInput.value}`
+                        content: `REFERENSI BERITA ASLI:\n${newsData}\n\nPERINTAH USER (HUKUM UTAMA):\n${cmdInput.value}`
                     }
                 ],
-                temperature: 0.7 // Dinaikkan sedikit agar AI lebih fleksibel mengikuti instruksi kreatif
+                temperature: 0.7
             })
         });
 
@@ -91,10 +100,10 @@ async function startJarvisPortal() {
 
         output.value = aiData.choices[0].message.content;
         resultArea.style.display = "block";
-        status.innerText = "> COMMAND EXECUTED SUCCESSFULLY.";
+        status.innerText = "> TRANSMISI SELESAI. DATA SESUAI PERINTAH.";
 
     } catch (err) {
-        status.innerText = "> ERROR: " + err.message;
+        status.innerText = "> SYSTEM_ERROR: " + err.message;
         status.style.color = "#ff4444";
     } finally {
         btn.disabled = false;
